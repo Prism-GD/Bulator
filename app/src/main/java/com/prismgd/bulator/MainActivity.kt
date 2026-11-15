@@ -95,7 +95,7 @@ class MainActivity : Activity() {
 
     private fun button(value: String, action: () -> Unit): Button =
         Button(this).apply {
-            text = value
+            text = "🐧  $value  🐧"
             isAllCaps = false
             setTextColor(Color.WHITE)
             setBackgroundTintList(android.content.res.ColorStateList.valueOf(accent))
@@ -109,14 +109,14 @@ class MainActivity : Activity() {
     }
 
     private fun showHome() {
-        baseScreen("BULATOR", "Lubuntu para Android • ARM64 • sem root")
-        content.addView(label("CONTAINERS", 12f, accent))
+        baseScreen("🐧 BULATOR 🐧", "🐧 Lubuntu para Android • ARM64 • sem root 🐧")
+        content.addView(label("🐧 CONTAINERS 🐧", 12f, accent))
         val list = containers()
         if (list.length() == 0) content.addView(label("Nenhum container criado.", color = muted))
         for (i in 0 until list.length()) {
             val item = list.optJSONObject(i) ?: continue
             val box = card()
-            box.addView(label(item.optString("name", "Container"), 18f))
+            box.addView(label("🐧  " + item.optString("name", "Container") + "  🐧", 18f))
             val desktopText = if (item.optBoolean("desktop", true)) "LXQt planejado" else "Somente terminal"
             box.addView(label(item.optString("distro", "Lubuntu") + " • " + item.optString("resolution", "Automática") + " • " + desktopText, 12f, muted))
             box.addView(label("Runtime Linux ainda não instalado", 12f, Color.rgb(255, 205, 100)))
@@ -129,11 +129,11 @@ class MainActivity : Activity() {
             content.addView(box, lp)
         }
         content.addView(button("+ Criar container") { createContainer() })
-        content.addView(label("FERRAMENTAS", 12f, accent))
+        content.addView(label("🐧 FERRAMENTAS 🐧", 12f, accent))
         content.addView(button("Mapeador de teclas") { showKeyMapper() })
         content.addView(button("Meus presets") { showPresets() })
         content.addView(button("Configurações de teclado Android") { openKeyboardSettings() })
-        content.addView(label("PRÓXIMA ETAPA", 12f, accent))
+        content.addView(label("🐧 PRÓXIMA ETAPA 🐧", 12f, accent))
         content.addView(label("Integrar PRoot ARM64, instalar o rootfs Lubuntu e conectar o terminal real. Esta versão já salva containers e presets localmente.", 13f, muted))
     }
 
@@ -208,7 +208,7 @@ class MainActivity : Activity() {
     }
 
     private fun showKeyMapper() {
-        baseScreen("MAPEADOR DE TECLAS", "Monte um layout e salve como preset.")
+        baseScreen("🐧 MAPEADOR DE TECLAS 🐧", "🐧 Monte um layout e salve como preset. 🐧")
         content.addView(label("Editor de teclas", 18f))
         content.addView(label("Digite as teclas separadas por vírgula. Exemplo: W, A, S, D, CTRL, ALT, SHIFT, TAB, ESC, ↑, ↓, ←, →", 13f, muted))
         val editor = EditText(this).apply {
