@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Bulator
         uses: actions/checkout@v4
 
       - name: Set up Java
@@ -21,8 +21,47 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK and NDK
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          targets: aarch64-linux-android
+
+      - name: Install cargo-make
+        run: cargo install cargo-make --locked
+
+      - name: Checkout upstream PRoot-RS
+        uses: actions/checkout@v4
+        with:
+          repository: proot-me/proot-rs
+          ref: master
+          path: .build/proot-rs
+
+      - name: Build PRoot-RS for Android ARM64
+        working-directory: .build/proot-rs
+        env:
+          CARGO_BUILD_TARGET: aarch64-linux-android
+        run: |
+          NDK="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "$TOOLCHAIN" >> "$GITHUB_PATH"
+          export PATH="$TOOLCHAIN:$PATH"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android24-clang"
+          cargo make build --profile=production
+          file target/aarch64-linux-android/release/proot-rs
+          file target/aarch64-linux-android/release/loader-shim
+
+      - name: Package PRoot-RS in APK native assets
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp .build/proot-rs/target/aarch64-linux-android/release/proot-rs app/src/main/jniLibs/arm64-v8a/libproot-rs.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libproot-rs.so
+          cp .build/proot-rs/COPYING app/src/main/assets-proot-license.txt
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
