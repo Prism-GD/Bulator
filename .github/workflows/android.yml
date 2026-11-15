@@ -55,6 +55,10 @@ jobs:
           cargo make build --profile=production
           file target/aarch64-linux-android/release/proot-rs
           file target/aarch64-linux-android/release/loader-shim
+          readelf -h target/aarch64-linux-android/release/proot-rs | grep -E 'Class:|Machine:'
+          readelf -h target/aarch64-linux-android/release/loader-shim | grep -E 'Class:|Machine:'
+          test -x target/aarch64-linux-android/release/proot-rs
+          test -x target/aarch64-linux-android/release/loader-shim
 
       - name: Package PRoot-RS in APK native assets
         run: |
@@ -72,6 +76,14 @@ jobs:
 
       - name: Build debug APK
         run: gradle assembleDebug
+
+      - name: Verify APK contents
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/lib(proot-rs|loader-shim).so'
+          unzip -l "$APK" | grep 'proot-rs-COPYING'
+          sha256sum "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
