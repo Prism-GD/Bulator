@@ -25,6 +25,9 @@ class MainActivity : Activity() {
     private lateinit var content: LinearLayout
     private var selectedContainer = 0
     private val linuxRuntime by lazy { LinuxRuntime(this) }
+    private var terminalProcess: Process? = null
+    private var terminalWriter: java.io.BufferedWriter? = null
+    private var terminalOutput: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,7 +139,7 @@ class MainActivity : Activity() {
             val installed = runCatching { linuxRuntime.isInstalled(containerId) }.getOrDefault(false)
             box.addView(label(if (installed) "Ubuntu Base instalado" else "Ubuntu ainda não instalado", 12f,
                 if (installed) Color.rgb(120, 220, 150) else Color.rgb(255, 205, 100)))
-            box.addView(button(if (installed) "Testar Linux" else "Instalar Ubuntu Base") {
+            box.addView(button(if (installed) "Abrir Linux" else "Instalar Ubuntu Base") {
                 installOrTestLinux(containerId, installed)
             })
             box.addView(button("Selecionar e configurar") {
@@ -158,7 +161,7 @@ class MainActivity : Activity() {
 
     private fun installOrTestLinux(containerId: String, alreadyInstalled: Boolean) {
         val progress = TextView(this).apply {
-            text = if (alreadyInstalled) "Verificando o PRoot e iniciando o Ubuntu…" else "Preparando instalação…"
+            text = if (alreadyInstalled) "Iniciando o shell Ubuntu…" else "Preparando o Ubuntu…"
             setTextColor(textColor)
             setPadding(28, 24, 28, 24)
         }
@@ -168,6 +171,7 @@ class MainActivity : Activity() {
             .setNegativeButton("Fechar", null)
             .create()
         dialog.show()
+
         Thread {
             try {
                 if (!alreadyInstalled) {
@@ -175,30 +179,154 @@ class MainActivity : Activity() {
                         runOnUiThread { progress.text = message }
                     }
                 }
-                runOnUiThread { progress.text = "Executando teste real do Linux…" }
-                val process = linuxRuntime.execute(containerId, "id; uname -a; printf '\\nUbuntu rootfs OK\\n'; ls /")
-                val output = process.inputStream.bufferedReader().use { it.readText() }
-                val exit = process.waitFor()
+                runOnUiThread { progress.text = "Iniciando PRoot e abrindo o shell interativo…" }
+                val process = linuxRuntime.startShell(containerId)
                 runOnUiThread {
                     dialog.dismiss()
-                    AlertDialog.Builder(this)
-                        .setTitle(if (exit == 0) "🐧 Linux iniciado!" else "Falha ao iniciar Linux")
-                        .setMessage(output.ifBlank { "O processo terminou sem saída." } + "\nCódigo de saída: " + exit)
-                        .setPositiveButton("OK", null)
-                        .show()
-                    showHome()
+                    showTerminal(containerId, process)
                 }
             } catch (error: Exception) {
                 runOnUiThread {
                     dialog.dismiss()
                     AlertDialog.Builder(this)
-                        .setTitle("Não foi possível iniciar")
+                        .setTitle("Não foi possível iniciar o Linux")
                         .setMessage(error.message ?: error.javaClass.simpleName)
                         .setPositiveButton("OK", null)
                         .show()
                 }
             }
         }.start()
+    }
+
+    private fun showTerminal(containerId: String, process: Process) {
+        terminalProcess = process
+        terminalWriter = process.outputStream.bufferedWriter()
+
+        val screen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14, 18, 14, 12)
+            setBackgroundColor(Color.rgb(8, 13, 18))
+        }
+        screen.addView(label("🐧 BULTOR • TERMINAL LINUX 🐧", 20f, accent))
+        screen.addView(label("Ubuntu Base ARM64 • container $containerId", 11f, muted))
+
+        val output = TextView(this).apply {
+            text = "Bulator Linux iniciado. Digite comandos abaixo.\\n"
+            textSize = 13f
+            typeface = Typeface.MONOSPACE
+            setTextColor(Color.rgb(190, 230, 190))
+            setTextIsSelectable(true)
+            setPadding(10, 10, 10, 10)
+        }
+        terminalOutput = output
+        val scroll = ScrollView(this).apply {
+            setBackgroundColor(Color.rgb(3, 7, 10))
+            addView(output)
+        }
+        screen.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        val command = EditText(this).apply {
+            hint = "Comando Linux…"
+            setSingleLine(true)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+            setTextColor(textColor)
+            setHintTextColor(muted)
+            setPadding(10, 4, 10, 4)
+            setBackgroundColor(panel)
+        }
+        row.addView(command, LinearLayout.LayoutParams(0, -2, 1f))
+        val send = Button(this).apply {
+            text = "Enviar"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            setBackgroundTintList(android.content.res.ColorStateList.valueOf(accent))
+        }
+        row.addView(send)
+        screen.addView(row)
+        val close = button("Encerrar Linux") {
+            closeTerminal()
+            showHome()
+        }
+        screen.addView(close)
+        setContentView(screen)
+
+        val sendCommand = {
+            val value = command.text.toString()
+            if (value.isNotBlank()) {
+                appendTerminal("\\n$ $value\\n")
+                try {
+                    terminalWriter?.apply {
+                        write(value)
+                        newLine()
+                        flush()
+                    } ?: appendTerminal("[Não há uma sessão de shell ativa.]\\n")
+                } catch (error: Exception) {
+                    appendTerminal("[Erro ao enviar comando: ${error.message}]\\n")
+                }
+                command.text.clear()
+            }
+        }
+        send.setOnClickListener { sendCommand() }
+        command.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
+                sendCommand()
+                true
+            } else false
+        }
+
+        Thread {
+            try {
+                val reader = process.inputStream.bufferedReader()
+                val buffer = CharArray(2048)
+                while (true) {
+                    val count = reader.read(buffer)
+                    if (count < 0) break
+                    val chunk = String(buffer, 0, count)
+                    runOnUiThread { appendTerminal(chunk) }
+                }
+            } catch (error: Exception) {
+                runOnUiThread { appendTerminal("\\n[Leitura encerrada: ${error.message}]\\n") }
+            } finally {
+                runOnUiThread {
+                    if (terminalProcess === process) {
+                        terminalProcess = null
+                        terminalWriter = null
+                        appendTerminal("\\n[Shell encerrado]\\n")
+                    }
+                }
+            }
+        }.start()
+        command.requestFocus()
+    }
+
+    private fun appendTerminal(value: String) {
+        val output = terminalOutput ?: return
+        output.append(value)
+        output.post {
+            (output.parent as? ScrollView)?.fullScroll(ScrollView.FOCUS_DOWN)
+        }
+    }
+
+    private fun closeTerminal() {
+        try { terminalWriter?.write("exit\\n"); terminalWriter?.flush() } catch (_: Exception) {}
+        terminalProcess?.destroy()
+        terminalProcess = null
+        terminalWriter = null
+        terminalOutput = null
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (terminalProcess != null) {
+            closeTerminal()
+            showHome()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     private fun createContainer() {
