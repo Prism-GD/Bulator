@@ -146,7 +146,7 @@ class MainActivity : Activity() {
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Criar") { _, _ ->
                 val current = containers()
-                val name = input.text.toString().trim().ifBlank { "Lubuntu " + (current.length + 1) }
+                val name = input.text.toString().trim().ifBlank { "Lubuntu " + (current.length() + 1) }
                 current.put(JSONObject().apply {
                     put("name", name)
                     put("distro", "Lubuntu")
