@@ -153,7 +153,7 @@ class MainActivity : Activity() {
         content.addView(button("Meus presets") { showPresets() })
         content.addView(button("Configurações de teclado Android") { openKeyboardSettings() })
         content.addView(label("🐧 PRÓXIMA ETAPA 🐧", 12f, accent))
-        content.addView(label("Integrar PRoot ARM64, instalar o rootfs Lubuntu e conectar o terminal real. Esta versão já salva containers e presets localmente.", 13f, muted))
+        content.addView(label("Alpha: instalar Ubuntu Base ARM64 e testar a execução real via PRoot. O desktop LXQt completo e o terminal interativo ainda estão em desenvolvimento.", 13f, muted))
     }
 
     private fun installOrTestLinux(containerId: String, alreadyInstalled: Boolean) {
