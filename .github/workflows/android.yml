@@ -55,6 +55,8 @@ jobs:
           echo "$TOOLCHAIN" >> "$GITHUB_PATH"
           export PATH="$TOOLCHAIN:$PATH"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android24-clang"
+          # proot-rs Makefile.toml invokes "$CARGO"; set it explicitly for native cross-linking.
+          export CARGO=cargo
           cargo make build --profile=production
           file target/aarch64-linux-android/release/proot-rs
           file target/aarch64-linux-android/release/loader-shim
