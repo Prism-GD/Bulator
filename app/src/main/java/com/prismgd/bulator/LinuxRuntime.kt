@@ -184,6 +184,31 @@ class LinuxRuntime(private val context: Context) {
         ).directory(dirs.rootfs).redirectErrorStream(true).start()
     }
 
+    /**
+     * Starts a persistent interactive shell. Android pipes provide command
+     * input/output; a real PTY is a later step for full-screen terminal apps.
+     */
+    fun startShell(containerId: String): Process {
+        val dirs = storage.prepare(containerId)
+        check(File(dirs.rootfs, "bin/sh").exists()) { "Instale o Ubuntu Base primeiro." }
+        val proot = prootExecutable()
+        return ProcessBuilder(
+            proot.absolutePath,
+            "-R", dirs.rootfs.absolutePath,
+            "/bin/sh", "-i"
+        ).directory(dirs.rootfs)
+            .redirectErrorStream(true)
+            .apply {
+                environment()["HOME"] = "/root"
+                environment()["USER"] = "root"
+                environment()["LOGNAME"] = "root"
+                environment()["TERM"] = "dumb"
+                environment()["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                environment()["PS1"] = "root@bulator:~# "
+            }
+            .start()
+    }
+
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().buffered().use { input ->
