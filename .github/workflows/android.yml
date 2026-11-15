@@ -52,6 +52,8 @@ jobs:
           echo "$TOOLCHAIN" >> "$GITHUB_PATH"
           export PATH="$TOOLCHAIN:$PATH"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android21-clang"
+          # PRoot-RS pins nightly-2021-03-24; install the Android target for that toolchain too.
+          rustup target add --toolchain nightly-2021-03-24 aarch64-linux-android
 
           # Build upstream targets directly: cargo-make defines CARGO as an empty
           # value when USE_CROSS is false, which breaks its shell build tasks.
