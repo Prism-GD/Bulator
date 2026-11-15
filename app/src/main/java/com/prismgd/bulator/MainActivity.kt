@@ -12,6 +12,7 @@ import android.graphics.Color
 import android.widget.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("bulator_data", Context.MODE_PRIVATE) }
@@ -23,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
     private var selectedContainer = 0
+    private val linuxRuntime by lazy { LinuxRuntime(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +36,7 @@ class MainActivity : Activity() {
         if (!prefs.contains("containers")) {
             val items = JSONArray()
             items.put(JSONObject().apply {
+                put("id", UUID.randomUUID().toString().replace("-", ""))
                 put("name", "Lubuntu Principal")
                 put("distro", "Lubuntu")
                 put("resolution", "Automática")
@@ -41,6 +44,16 @@ class MainActivity : Activity() {
             })
             prefs.edit().putString("containers", items.toString()).apply()
         }
+        val existing = containers()
+        var changed = false
+        for (i in 0 until existing.length()) {
+            val item = existing.optJSONObject(i) ?: continue
+            if (item.optString("id").isBlank()) {
+                item.put("id", UUID.randomUUID().toString().replace("-", ""))
+                changed = true
+            }
+        }
+        if (changed) saveContainers(existing)
     }
 
     private fun containers(): JSONArray = try {
@@ -119,7 +132,13 @@ class MainActivity : Activity() {
             box.addView(label("🐧  " + item.optString("name", "Container") + "  🐧", 18f))
             val desktopText = if (item.optBoolean("desktop", true)) "LXQt planejado" else "Somente terminal"
             box.addView(label(item.optString("distro", "Lubuntu") + " • " + item.optString("resolution", "Automática") + " • " + desktopText, 12f, muted))
-            box.addView(label("Runtime Linux ainda não instalado", 12f, Color.rgb(255, 205, 100)))
+            val containerId = item.optString("id")
+            val installed = runCatching { linuxRuntime.isInstalled(containerId) }.getOrDefault(false)
+            box.addView(label(if (installed) "Ubuntu Base instalado" else "Ubuntu ainda não instalado", 12f,
+                if (installed) Color.rgb(120, 220, 150) else Color.rgb(255, 205, 100)))
+            box.addView(button(if (installed) "Testar Linux" else "Instalar Ubuntu Base") {
+                installOrTestLinux(containerId, installed)
+            })
             box.addView(button("Selecionar e configurar") {
                 selectedContainer = i
                 showContainerSettings()
@@ -137,6 +156,51 @@ class MainActivity : Activity() {
         content.addView(label("Integrar PRoot ARM64, instalar o rootfs Lubuntu e conectar o terminal real. Esta versão já salva containers e presets localmente.", 13f, muted))
     }
 
+    private fun installOrTestLinux(containerId: String, alreadyInstalled: Boolean) {
+        val progress = TextView(this).apply {
+            text = if (alreadyInstalled) "Verificando o PRoot e iniciando o Ubuntu…" else "Preparando instalação…"
+            setTextColor(textColor)
+            setPadding(28, 24, 28, 24)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("🐧 Bulator Linux")
+            .setView(progress)
+            .setNegativeButton("Fechar", null)
+            .create()
+        dialog.show()
+        Thread {
+            try {
+                if (!alreadyInstalled) {
+                    linuxRuntime.installUbuntuBase(containerId) { message ->
+                        runOnUiThread { progress.text = message }
+                    }
+                }
+                runOnUiThread { progress.text = "Executando teste real do Linux…" }
+                val process = linuxRuntime.execute(containerId, "id; uname -a; printf '\\nUbuntu rootfs OK\\n'; ls /")
+                val output = process.inputStream.bufferedReader().use { it.readText() }
+                val exit = process.waitFor()
+                runOnUiThread {
+                    dialog.dismiss()
+                    AlertDialog.Builder(this)
+                        .setTitle(if (exit == 0) "🐧 Linux iniciado!" else "Falha ao iniciar Linux")
+                        .setMessage(output.ifBlank { "O processo terminou sem saída." } + "\nCódigo de saída: " + exit)
+                        .setPositiveButton("OK", null)
+                        .show()
+                    showHome()
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    dialog.dismiss()
+                    AlertDialog.Builder(this)
+                        .setTitle("Não foi possível iniciar")
+                        .setMessage(error.message ?: error.javaClass.simpleName)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }.start()
+    }
+
     private fun createContainer() {
         val input = EditText(this).apply { hint = "Ex.: Lubuntu Testes" }
         AlertDialog.Builder(this)
@@ -148,6 +212,7 @@ class MainActivity : Activity() {
                 val current = containers()
                 val name = input.text.toString().trim().ifBlank { "Lubuntu " + (current.length() + 1) }
                 current.put(JSONObject().apply {
+                    put("id", UUID.randomUUID().toString().replace("-", ""))
                     put("name", name)
                     put("distro", "Lubuntu")
                     put("resolution", "Automática")
