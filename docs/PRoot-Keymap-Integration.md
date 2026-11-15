@@ -21,6 +21,30 @@ A entrega será incremental: a alpha valida PRoot e o sistema base; a beta acres
 - Cada container possui rootfs, cache, downloads e configuração próprios.
 - Nenhuma execução como root e nenhuma alegação de virtualização de hardware.
 
+## Persistência: os dados precisam continuar lá
+
+Salvar arquivos é requisito central do Bulator, não um extra. Cada container terá armazenamento persistente e independente:
+
+- **Sistema Linux:** rootfs completo, incluindo pacotes instalados e atualizações feitas pelo APT.
+- **Pasta pessoal:** `/home/<usuario>`, com documentos, projetos, downloads e arquivos criados.
+- **Configurações:** preferências do LXQt, temas, atalhos, configurações de aplicativos e shell.
+- **Keymap:** layouts e presets salvos, associados ao usuário/container quando apropriado.
+- **Estado do container:** nome, distribuição, resolução, preferências e metadados.
+
+Fechar o Bulator, parar o container ou reiniciar o Android não pode apagar esses dados. Ao iniciar novamente, o Bulator deve montar o mesmo rootfs e restaurar a sessão de trabalho (os programas em execução podem precisar ser reabertos; não prometer restauração automática de processos).
+
+O armazenamento deve ficar em diretório persistente do app, organizado por ID estável do container, e não em uma pasta temporária. Não aplicar quota fixa de 3,9 GB: esse número é uma meta aproximada para o sistema inicial; aplicativos e arquivos do usuário podem ocupar espaço adicional conforme o armazenamento disponível.
+
+### Segurança e recuperação dos dados
+
+- Exibir o espaço usado por cada container e o espaço livre do aparelho.
+- Nunca apagar um container ao apenas parar ou fechar o aplicativo.
+- Exigir confirmação explícita antes de excluir um container, informando que rootfs e arquivos pessoais serão apagados.
+- Planejar exportar/importar ou backup do container para armazenamento escolhido pelo usuário.
+- Fazer instalação/atualização do rootfs com estado de progresso e recuperação após interrupção, sem sobrescrever dados pessoais.
+- Não expor automaticamente todo o armazenamento Android ao Linux; oferecer pastas compartilhadas com autorização do usuário.
+- Documentar que desinstalar o aplicativo pode remover seu armazenamento privado; backup/exportação será necessário para preservar dados fora do aparelho.
+
 ## PRoot: etapas obrigatórias
 
 1. Fixar uma tag/commit upstream e registrar a licença GPL-2.0-or-later e avisos de terceiros.
@@ -55,7 +79,7 @@ A arte aprovada deve ocupar toda a tela, com escala `centerCrop` e camada escura
 - Instalação/verificação do Ubuntu Base ARM64.
 - Shell real interativo via PTY.
 - Keymap básico funcional: letras, números, Enter, Backspace, Tab, Esc, setas e modificadores.
-- Containers independentes e persistentes.
+- Containers independentes e persistentes, com home, configurações e pacotes preservados após fechar/reiniciar.
 - Fundo do pinguim integrado.
 - Sem LXQt nesta alpha, a menos que seja estável e validado.
 
@@ -86,6 +110,8 @@ A arte aprovada deve ocupar toda a tela, com escala `centerCrop` e camada escura
 - [ ] `id`, `uname -m`, `pwd`, `ls` e `apt update` funcionam.
 - [ ] Teclas físicas e virtuais chegam ao shell.
 - [ ] Dois containers não compartilham rootfs/configuração.
+- [ ] Arquivos em /home e pacotes instalados continuam presentes após parar, fechar e reabrir o Bulator.
+- [ ] Excluir container exige confirmação explícita; backup/exportação está documentado.
 - [ ] Instalação interrompida pode ser retomada sem corromper o rootfs.
 - [ ] Fundo do pinguim aparece atrás da interface em diferentes tamanhos de tela.
 
