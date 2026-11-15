@@ -35,9 +35,6 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Install cargo-make
-        run: cargo install cargo-make --locked
-
       - name: Checkout upstream PRoot-RS
         uses: actions/checkout@v4
         with:
@@ -54,10 +51,21 @@ jobs:
           TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
           echo "$TOOLCHAIN" >> "$GITHUB_PATH"
           export PATH="$TOOLCHAIN:$PATH"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android24-clang"
-          # proot-rs Makefile.toml invokes "$CARGO"; set it explicitly for native cross-linking.
-          export CARGO=cargo
-          cargo make build --profile=production
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android21-clang"
+
+          # Build upstream targets directly: cargo-make defines CARGO as an empty
+          # value when USE_CROSS is false, which breaks its shell build tasks.
+          RUSTFLAGS="-C panic=abort -C link-self-contained=no" cargo build \
+            --bin=loader-shim --features=build-binary \
+            --target=aarch64-linux-android --release
+
+          # PRoot-RS embeds the loader shim from this source-tree location.
+          mkdir -p proot-rs/src/kernel/execve
+          cp target/aarch64-linux-android/release/loader-shim \
+            proot-rs/src/kernel/execve/loader-shim
+
+          cargo build --bin=proot-rs --target=aarch64-linux-android --release
+
           file target/aarch64-linux-android/release/proot-rs
           file target/aarch64-linux-android/release/loader-shim
           readelf -h target/aarch64-linux-android/release/proot-rs | grep -E 'Class:|Machine:'
