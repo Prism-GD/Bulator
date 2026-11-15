@@ -179,7 +179,7 @@ class LinuxRuntime(private val context: Context) {
         val proot = prootExecutable()
         return ProcessBuilder(
             proot.absolutePath,
-            "-R", dirs.rootfs.absolutePath,
+            "-r", dirs.rootfs.absolutePath,
             "/bin/sh", "-lc", command
         ).directory(dirs.rootfs).redirectErrorStream(true).start()
     }
@@ -194,7 +194,7 @@ class LinuxRuntime(private val context: Context) {
         val proot = prootExecutable()
         return ProcessBuilder(
             proot.absolutePath,
-            "-R", dirs.rootfs.absolutePath,
+            "-r", dirs.rootfs.absolutePath,
             "/bin/sh", "-i"
         ).directory(dirs.rootfs)
             .redirectErrorStream(true)
