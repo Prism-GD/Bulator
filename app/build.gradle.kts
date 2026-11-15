@@ -11,8 +11,8 @@ android {
         applicationId = "com.prismgd.bulator"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0-alpha"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -30,7 +30,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
+    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n\n    kotlinOptions {
         jvmTarget = "17"
     }
 }
+\n\ndependencies {\n    implementation("org.apache.commons:commons-compress:1.27.1")\n}\n
