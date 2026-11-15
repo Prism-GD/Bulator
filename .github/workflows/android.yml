@@ -62,7 +62,8 @@ jobs:
           cp .build/proot-rs/target/aarch64-linux-android/release/proot-rs app/src/main/jniLibs/arm64-v8a/libproot-rs.so
           cp .build/proot-rs/target/aarch64-linux-android/release/loader-shim app/src/main/jniLibs/arm64-v8a/libloader-shim.so
           chmod 755 app/src/main/jniLibs/arm64-v8a/libproot-rs.so
-          cp .build/proot-rs/COPYING app/src/main/assets-proot-license.txt
+          mkdir -p app/src/main/assets
+          cp .build/proot-rs/COPYING app/src/main/assets/proot-rs-COPYING
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
