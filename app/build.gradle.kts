@@ -30,8 +30,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n\n    kotlinOptions {
+    kotlinOptions {
         jvmTarget = "17"
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
-\n\ndependencies {\n    implementation("org.apache.commons:commons-compress:1.27.1")\n}\n
+
+dependencies {
+    implementation("org.apache.commons:commons-compress:1.27.1")
+}
