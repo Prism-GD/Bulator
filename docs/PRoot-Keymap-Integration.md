@@ -4,6 +4,14 @@
 
 O aplicativo atual é um gerenciador Android de perfis. Ainda não contém um executável PRoot compatível com Android, um rootfs Ubuntu instalado, um terminal Linux/PTY ou um desktop LXQt. O editor de keymap salva presets, mas ainda não envia eventos para um processo Linux.
 
+## Objetivo do produto: Linux completo
+
+O Bulator não será apenas um terminal nem um lançador de comandos. O objetivo final é oferecer um ambiente Lubuntu ARM64 completo dentro do Android, com área de trabalho gráfica e ferramentas de uso diário. O usuário deverá conseguir abrir a área de trabalho, navegar por arquivos, abrir configurações, usar o terminal, instalar programas e trabalhar com várias janelas.
+
+O desktop planejado inclui LXQt, painel e menu de aplicativos, PCManFM-Qt (gerenciador de arquivos), terminal, configurações do sistema e instalação de programas pelo APT. Integrações Android como teclado virtual/keymap, redimensionamento de tela, clipboard e acesso controlado a arquivos serão desenvolvidas e testadas separadamente. Recursos como áudio e integração adicional com Android serão avaliados conforme compatibilidade.
+
+A entrega será incremental: a alpha valida PRoot e o sistema base; a beta acrescenta e valida o desktop gráfico; a versão 1.0 só será considerada completa quando a experiência de desktop e os componentes essenciais estiverem funcionando. Portanto, a alpha de terminal não representa o produto final.
+
 ## Arquitetura alvo
 
 - Aplicativo Android Kotlin (interface, containers, permissões e armazenamento privado).
@@ -51,13 +59,19 @@ A arte aprovada deve ocupar toda a tela, com escala `centerCrop` e camada escura
 - Fundo do pinguim integrado.
 - Sem LXQt nesta alpha, a menos que seja estável e validado.
 
-### 0.4.0-beta — Desktop
+### 0.4.0-beta — Desktop gráfico completo
 - Instalação LXQt/Lubuntu via APT.
-- Renderização gráfica por servidor compatível com Android (avaliar solução separada).
+- Área de trabalho gráfica com painel, menu de aplicativos e janelas.
+- PCManFM-Qt, terminal gráfico, configurações do sistema e utilitários essenciais.
+- Renderização gráfica por servidor compatível com Android (avaliar e validar a solução).
+- Keymap funcional também no desktop, não apenas no terminal.
 - Mapeador visual arrastável, redimensionável e presets.
 - Medição de armazenamento e recuperação de instalação interrompida.
 
-### 1.0.0 — Primeira versão estável
+### 1.0.0 — Lubuntu completo para Android
+- Área de trabalho LXQt utilizável e componentes essenciais do Lubuntu integrados.
+- Gerenciador de arquivos, terminal gráfico, configurações, menu e instalação de aplicativos pelo APT.
+- Keymap integrado ao terminal e ao desktop.
 - Instalação limpa e atualização reproduzíveis.
 - Testes no Samsung A04s e em outros ARM64.
 - Logs exportáveis, diagnóstico e mensagens de erro úteis.
