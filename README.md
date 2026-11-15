@@ -1,35 +1,32 @@
 # Bulator
 
-A lightweight Lubuntu-oriented Linux container manager for Android, initially targeting ARM64 devices.
+A persistent ARM64 Linux userspace for Android, without root access. The target desktop is **Lubuntu with LXQt**, including its file manager, application menu, terminal, settings and APT.
 
-## Version 0.2.0 — first functional manager prototype
+## Version 0.3.0-alpha — Linux runtime integration
 
-This version adds locally persisted container profiles, per-container settings, a keyboard mapping editor, and saved keyboard presets.
+The current source adds the first runtime-integration path:
 
-### Working in this version
-- Create, select, configure, and delete container profiles.
-- Save container name, desktop preference, and display resolution.
-- Edit a keyboard mapping and save named presets.
-- Load saved presets on the device.
-- Open Android keyboard settings / request the soft keyboard.
+- GitHub Actions cross-compiles upstream PRoot-RS for `aarch64-linux-android`.
+- The PRoot-RS executable and loader shim are packaged into the ARM64 APK.
+- The app can download the official Ubuntu Base 24.04.5 ARM64 root filesystem.
+- The downloaded archive is checked against Ubuntu's published SHA256SUMS before extraction.
+- Each container receives a stable ID and its own persistent root filesystem directory.
+- The app includes a smoke test that attempts to execute Linux commands through PRoot-RS.
 
-### Not yet integrated
-- PRoot ARM64 runtime.
-- Lubuntu ARM64 root filesystem download and extraction.
-- Real Ubuntu shell and command execution.
-- LXQt graphical desktop rendering.
-- Sending mapped keys into a running Linux session.
+**Important:** this alpha is not yet the complete Lubuntu desktop. Ubuntu Base is the minimal foundation. The LXQt desktop, graphical display server, interactive terminal/PTY, keyboard injection and device-level PRoot compatibility still require implementation and real-device testing. A successful Android APK build alone does not prove that ptrace works on every phone.
 
-The app labels these features as pending rather than pretending that Linux is already running.
+## Data persistence
+
+Each container keeps its own rootfs, downloads, cache and configuration under the app's persistent private storage. Stopping the app does not intentionally remove those files. Uninstalling Bulator can remove private app data, so backup/export is required before uninstalling.
 
 ## Architecture
 
-Bulator will run a Lubuntu ARM64 userspace in Android using PRoot, without root access or replacing the Android kernel. It is a userspace container environment, not a hardware-virtualizing virtual machine.
+Bulator runs a Linux userspace through PRoot on the Android kernel. It is not a hardware-virtualizing virtual machine and does not replace Android.
 
-The initial Lubuntu target is approximately 3.9 GB for the installed base system; this is a planning target, not a storage quota. Apps and user downloads installed later use additional device storage.
+The initial rootfs download is a minimal Ubuntu Base archive (about 29 MB compressed), not a 3.9 GB desktop installation. The approximately 3.9 GB figure is a planning estimate for the later installed desktop system, not a quota.
 
-## Development
+## Development and builds
 
-Development and APK builds use GitHub and GitHub Actions. Termux is not part of the workflow.
+Development and APK builds use GitHub and GitHub Actions. **Termux is not part of the workflow.**
 
-Run **Build Bulator APK** in the Actions tab. The debug APK is uploaded as the `Bulator-debug-apk` artifact.
+Open the Actions tab and select **Build Bulator APK**. The workflow uploads the debug APK as the `Bulator-debug-apk` artifact after a successful build.
