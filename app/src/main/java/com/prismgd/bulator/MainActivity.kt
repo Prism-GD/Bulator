@@ -207,11 +207,11 @@ class MainActivity : Activity() {
             setPadding(14, 18, 14, 12)
             setBackgroundColor(Color.rgb(8, 13, 18))
         }
-        screen.addView(label("🐧 BULTOR • TERMINAL LINUX 🐧", 20f, accent))
+        screen.addView(label("🐧 BULATOR • TERMINAL LINUX 🐧", 20f, accent))
         screen.addView(label("Ubuntu Base ARM64 • container $containerId", 11f, muted))
 
         val output = TextView(this).apply {
-            text = "Bulator Linux iniciado. Digite comandos abaixo.\\n"
+            text = "Bulator Linux iniciado. Digite comandos abaixo.\n"
             textSize = 13f
             typeface = Typeface.MONOSPACE
             setTextColor(Color.rgb(190, 230, 190))
@@ -257,15 +257,15 @@ class MainActivity : Activity() {
         val sendCommand = {
             val value = command.text.toString()
             if (value.isNotBlank()) {
-                appendTerminal("\\n$ $value\\n")
+                appendTerminal("\n$ $value\n")
                 try {
                     terminalWriter?.apply {
                         write(value)
                         newLine()
                         flush()
-                    } ?: appendTerminal("[Não há uma sessão de shell ativa.]\\n")
+                    } ?: appendTerminal("[Não há uma sessão de shell ativa.]\n")
                 } catch (error: Exception) {
-                    appendTerminal("[Erro ao enviar comando: ${error.message}]\\n")
+                    appendTerminal("[Erro ao enviar comando: ${error.message}]\n")
                 }
                 command.text.clear()
             }
@@ -289,13 +289,13 @@ class MainActivity : Activity() {
                     runOnUiThread { appendTerminal(chunk) }
                 }
             } catch (error: Exception) {
-                runOnUiThread { appendTerminal("\\n[Leitura encerrada: ${error.message}]\\n") }
+                runOnUiThread { appendTerminal("\n[Leitura encerrada: ${error.message}]\n") }
             } finally {
                 runOnUiThread {
                     if (terminalProcess === process) {
                         terminalProcess = null
                         terminalWriter = null
-                        appendTerminal("\\n[Shell encerrado]\\n")
+                        appendTerminal("\n[Shell encerrado]\n")
                     }
                 }
             }
@@ -312,7 +312,7 @@ class MainActivity : Activity() {
     }
 
     private fun closeTerminal() {
-        try { terminalWriter?.write("exit\\n"); terminalWriter?.flush() } catch (_: Exception) {}
+        try { terminalWriter?.write("exit\n"); terminalWriter?.flush() } catch (_: Exception) {}
         terminalProcess?.destroy()
         terminalProcess = null
         terminalWriter = null
