@@ -68,7 +68,7 @@ jobs:
 
           # Build upstream targets directly: cargo-make defines CARGO as an empty
           # value when USE_CROSS is false, which breaks its shell build tasks.
-          RUSTFLAGS="-C panic=abort -C link-self-contained=no" cargo build \
+          RUSTFLAGS="-C panic=abort -C link-self-contained=no -C link-arg=-lunwind" cargo build \
             --bin=loader-shim --features=build-binary \
             --target=aarch64-linux-android --release
 
@@ -77,7 +77,8 @@ jobs:
           cp target/aarch64-linux-android/release/loader-shim \
             proot-rs/src/kernel/execve/loader-shim
 
-          cargo build --bin=proot-rs --target=aarch64-linux-android --release
+          RUSTFLAGS="-C panic=abort -C link-self-contained=no -C link-arg=-lunwind" \
+            cargo build --bin=proot-rs --target=aarch64-linux-android --release
 
           file target/aarch64-linux-android/release/proot-rs
           file target/aarch64-linux-android/release/loader-shim
