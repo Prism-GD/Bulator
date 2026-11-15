@@ -6,18 +6,21 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 
 /**
- * Installs an official Ubuntu Base ARM64 rootfs into a persistent container.
+ * Installs the official Ubuntu Base ARM64 rootfs into a persistent container.
  * PRoot-RS is packaged as an Android ARM64 executable by the CI workflow.
  */
 class LinuxRuntime(private val context: Context) {
     private val storage = ContainerStorage(context)
-    private val rootfsUrl = "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-arm64.tar.gz"
-    private val sumsUrl = "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/SHA256SUMS"
+    private val releaseBase = "https://cdimages.ubuntu.com/cdimage/ubuntu-base/releases/noble/release/"
+    private val archiveName = "ubuntu-base-24.04.5-base-arm64.tar.gz"
+    private val rootfsUrl = releaseBase + archiveName
+    private val sumsUrl = releaseBase + "SHA256SUMS"
 
     fun prootExecutable(): File {
         val executable = File(context.applicationInfo.nativeLibraryDir, "libproot-rs.so")
@@ -35,31 +38,44 @@ class LinuxRuntime(private val context: Context) {
         val marker = File(dirs.base, ".ubuntu-base-installed")
         if (marker.exists() && File(dirs.rootfs, "bin/sh").exists()) return
 
-        val archive = File(dirs.downloads, "ubuntu-base-arm64.tar.gz.part")
-        val finalArchive = File(dirs.downloads, "ubuntu-base-arm64.tar.gz")
-        progress("Baixando Ubuntu Base ARM64…")
-        URL(sumsUrl).openConnection().apply {
-            connectTimeout = 20000
-            readTimeout = 30000
-        }.getInputStream().bufferedReader().use { reader ->
-            val expected = reader.lineSequence().firstOrNull { it.contains("ubuntu-base-24.04.5-base-arm64.tar.gz") }
-                ?.trim()?.split(Regex("\\s+"))?.first()
-                ?: error("Não foi possível obter o SHA256 oficial do Ubuntu Base.")
-            URL(rootfsUrl).openConnection().apply {
-                connectTimeout = 20000
-                readTimeout = 60000
-            }.getInputStream().use { input ->
-                FileOutputStream(archive).use { output -> input.copyTo(output) }
+        val archive = File(dirs.downloads, "$archiveName.part")
+        val finalArchive = File(dirs.downloads, archiveName)
+
+        progress("Conectando aos servidores oficiais do Ubuntu…")
+        val expected = downloadText(sumsUrl)
+            .lineSequence()
+            .firstOrNull { it.trim().endsWith(archiveName) }
+            ?.trim()?.split(Regex("\\s+"))?.first()
+            ?: error("O arquivo SHA256SUMS não contém a soma do Ubuntu Base ARM64.")
+
+        progress("Baixando Ubuntu Base ARM64 (aproximadamente 29 MB)…")
+        try {
+            downloadFile(rootfsUrl, archive) { received, total ->
+                val percent = if (total > 0L) (received * 100L / total).toInt() else -1
+                val receivedMb = received / (1024 * 1024)
+                val totalMb = if (total > 0L) total / (1024 * 1024) else 0L
+                progress(if (percent >= 0) {
+                    "Baixando Ubuntu Base: $percent% ($receivedMb/$totalMb MB)…"
+                } else {
+                    "Baixando Ubuntu Base: $receivedMb MB recebidos…"
+                })
             }
+
             progress("Verificando integridade do download…")
             val actual = sha256(archive)
             check(actual.equals(expected, ignoreCase = true)) {
-                "A verificação SHA256 falhou. O arquivo baixado foi descartado."
+                "O SHA256 do download não confere. Baixe novamente para evitar um sistema corrompido."
             }
-        }
-        if (!archive.renameTo(finalArchive)) {
-            archive.copyTo(finalArchive, overwrite = true)
+
+            if (finalArchive.exists()) check(finalArchive.delete()) {
+                "Não foi possível substituir o download anterior."
+            }
+            check(archive.renameTo(finalArchive)) {
+                "Download concluído, mas não foi possível salvar o arquivo."
+            }
+        } catch (error: Exception) {
             archive.delete()
+            throw error
         }
 
         progress("Extraindo o sistema de arquivos…")
@@ -68,15 +84,93 @@ class LinuxRuntime(private val context: Context) {
         check(staging.mkdirs()) { "Não foi possível criar o diretório do sistema." }
         try {
             extractTarGz(finalArchive, staging)
-            check(File(staging, "bin/sh").exists()) { "O rootfs não contém /bin/sh." }
-            if (dirs.rootfs.exists()) check(dirs.rootfs.deleteRecursively()) { "Não foi possível substituir o rootfs." }
-            check(staging.renameTo(dirs.rootfs)) { "Não foi possível ativar o rootfs instalado." }
+            check(File(staging, "bin/sh").exists()) { "O rootfs baixado não contém /bin/sh." }
+            if (dirs.rootfs.exists()) check(dirs.rootfs.deleteRecursively()) {
+                "Não foi possível substituir o rootfs."
+            }
+            check(staging.renameTo(dirs.rootfs)) {
+                "Não foi possível ativar o rootfs instalado."
+            }
             marker.writeText("Ubuntu Base 24.04.5 ARM64")
         } catch (error: Exception) {
             staging.deleteRecursively()
             throw error
         }
         progress("Ubuntu Base instalado. O sistema está pronto para iniciar após o teste do PRoot.")
+    }
+
+    private fun downloadText(address: String): String {
+        val connection = openConnection(address)
+        return try {
+            val code = connection.responseCode
+            check(code in 200..299) {
+                "Servidor do Ubuntu respondeu HTTP $code ao consultar a lista de verificações."
+            }
+            connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun downloadFile(address: String, destination: File, onProgress: (Long, Long) -> Unit) {
+        var lastError: Exception? = null
+        for (attempt in 1..3) {
+            try {
+                val connection = openConnection(address)
+                try {
+                    val code = connection.responseCode
+                    check(code in 200..299) {
+                        "Servidor do Ubuntu respondeu HTTP $code ao baixar o sistema."
+                    }
+                    val total = connection.contentLengthLong
+                    if (total > 0L) {
+                        check(destination.parentFile?.usableSpace?.let { it > total + 20L * 1024 * 1024 } != false) {
+                            "Não há espaço livre suficiente para baixar o Ubuntu Base."
+                        }
+                    }
+                    connection.inputStream.use { input ->
+                        FileOutputStream(destination, false).use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var received = 0L
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                received += count
+                                onProgress(received, total)
+                            }
+                            output.fd.sync()
+                            check(total <= 0L || received == total) {
+                                "Download incompleto: recebidos $received de $total bytes."
+                            }
+                        }
+                    }
+                    return
+                } finally {
+                    connection.disconnect()
+                }
+            } catch (error: Exception) {
+                destination.delete()
+                lastError = error
+                if (attempt < 3) onProgress(0L, 0L)
+            }
+        }
+        throw IllegalStateException(
+            "Não foi possível baixar o Ubuntu após 3 tentativas: ${lastError?.message ?: "erro de rede desconhecido"}",
+            lastError
+        )
+    }
+
+    private fun openConnection(address: String): HttpURLConnection {
+        return (URL(address).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 20000
+            readTimeout = 60000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "Bulator-Android/0.3")
+            setRequestProperty("Accept", "*/*")
+            connect()
+        }
     }
 
     fun execute(containerId: String, command: String): Process {
